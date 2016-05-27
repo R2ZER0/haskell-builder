@@ -19,19 +19,20 @@ tag="${2-"$package":latest}"
 ghc_options=${ghc_options:--static -optl-static -optl-pthread}
 socket=/var/run/docker.sock
 file=Dockerfile
+stack_work_dir=.stack-work-haskell-builder
 
 echo "Building $package"
-stack setup "$(ghc --numeric-version)" --skip-ghc-check
-stack build --ghc-options "$ghc_options" -- .
+stack --work-dir=$stack_work_dir setup "$(ghc --numeric-version)" --skip-ghc-check
+stack --work-dir=$stack_work_dir build --ghc-options "$ghc_options" -- .
 
 # Strip all statically linked executables
-find "$(stack path --dist-dir)/build" \
+find "$(stack --work-dir=$stack_work_dir path --dist-dir)/build" \
   -type f \
   -perm -u=x,g=x,o=x \
   -exec strip --strip-all --enable-deterministic-archives --preserve-dates {} +
 
 if [ -S $socket ] && [ -r $socket ] && [ -w $socket ] && [ -f $file ] && [ -r $file ]; then
-  ln -snf -- "$(stack path --dist-dir)/build" .
+  ln -snf -- "$(stack --work-dir=$stack_work_dir  path --dist-dir)/build" .
   docker build --tag "$tag" --file "$file" -- .
   echo "Created container $tag"
   echo "Usage: docker run -it --rm $tag"
